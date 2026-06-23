@@ -1,65 +1,71 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Music, Plus } from "lucide-react";
 
 export default function Home() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const createRoom = async () => {
+    setLoading(true);
+    try {
+      const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Save host status
+      const hostData = JSON.parse(localStorage.getItem("office_music_hosts") || "{}");
+      hostData[roomId] = true;
+      localStorage.setItem("office_music_hosts", JSON.stringify(hostData));
+
+      // Create room in Firestore
+      await setDoc(doc(db, "rooms", roomId), {
+        createdAt: serverTimestamp(),
+        currentSong: null,
+      });
+
+      router.push(`/room/${roomId}`);
+    } catch (error) {
+      console.error("Error creating room:", error);
+      alert("Failed to create room. Please check your Firebase configuration.");
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="flex-1 flex flex-col items-center justify-center p-8 bg-gradient-to-b from-[var(--color-background)] to-[var(--color-card)] h-screen">
+      <div className="max-w-md w-full text-center space-y-8 p-8 rounded-3xl bg-[var(--color-card)] border border-[var(--color-border)] shadow-2xl backdrop-blur-xl">
+        <div className="flex justify-center">
+          <div className="h-24 w-24 bg-[var(--color-primary)]/20 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(139,92,246,0.3)]">
+            <Music className="h-12 w-12 text-[var(--color-primary)]" />
+          </div>
+        </div>
+        <div className="space-y-3">
+          <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+            Office Music
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-lg text-slate-400">
+            Collaborative, real-time music queue for your team.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+        <button
+          onClick={createRoom}
+          disabled={loading}
+          className="w-full inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-[var(--color-primary)] to-fuchsia-500 hover:from-[var(--color-primary-hover)] hover:to-fuchsia-600 rounded-2xl shadow-lg shadow-primary/30 transition-all active:scale-95 disabled:opacity-50"
+        >
+          {loading ? (
+            <span className="animate-pulse">Creating...</span>
+          ) : (
+            <>
+              <Plus className="mr-2 h-6 w-6" />
+              Create Room
+            </>
+          )}
+        </button>
+      </div>
+    </main>
   );
 }
