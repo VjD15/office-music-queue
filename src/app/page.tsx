@@ -1,14 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, collection, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Music, Plus } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Lazy cleanup of rooms older than 24 hours
+    const cleanupOldRooms = async () => {
+      try {
+        const roomsRef = collection(db, "rooms");
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        
+        const q = query(roomsRef, where("createdAt", "<", twentyFourHoursAgo));
+        const snapshot = await getDocs(q);
+        
+        for (const roomDoc of snapshot.docs) {
+          // Delete subcollection "queue" documents first (no cascade delete in Firestore client)
+          const queueRef = collection(db, "rooms", roomDoc.id, "queue");
+          const queueSnap = await getDocs(queueRef);
+          
+          const deleteQueuePromises = queueSnap.docs.map((qDoc) => 
+            deleteDoc(doc(db, "rooms", roomDoc.id, "queue", qDoc.id))
+          );
+          await Promise.all(deleteQueuePromises);
+          
+          // Delete the room document
+          await deleteDoc(doc(db, "rooms", roomDoc.id));
+          console.log(`Cleaned up old room: ${roomDoc.id}`);
+        }
+      } catch (err) {
+        console.error("Cleanup error:", err);
+      }
+    };
+
+    cleanupOldRooms();
+  }, []);
 
   const createRoom = async () => {
     setLoading(true);
@@ -24,6 +56,7 @@ export default function Home() {
       await setDoc(doc(db, "rooms", roomId), {
         createdAt: serverTimestamp(),
         currentSong: null,
+        orderedIds: [],
       });
 
       router.push(`/room/${roomId}`);

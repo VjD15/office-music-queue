@@ -4,6 +4,7 @@ export interface Room {
   id: string;
   createdAt: Timestamp | number;
   currentSong: Song | null;
+  orderedIds?: string[];
 }
 
 export interface Song {

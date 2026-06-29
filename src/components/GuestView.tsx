@@ -49,11 +49,12 @@ export default function GuestView({ roomId, guestId, name }: { roomId: string; g
     }
   };
 
-  const hasActiveSong = queue.some((song) => song.requestedBy.guestId === guestId);
+  const activeSongsCount = queue.filter((song) => song.requestedBy.guestId === guestId).length;
+  const limitReached = activeSongsCount >= 2;
 
   const addToQueue = async (video: any) => {
-    if (hasActiveSong) {
-      alert("You already have a song in the queue. Wait for it to play before adding another!");
+    if (limitReached) {
+      alert("You already have 2 songs in the queue. Wait for one to play before adding another!");
       return;
     }
 
@@ -132,13 +133,13 @@ export default function GuestView({ roomId, guestId, name }: { roomId: string; g
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-12 pr-24 py-4 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] shadow-inner transition-all"
             />
-            <button
-              type="submit"
-              disabled={searching}
-              className="absolute inset-y-2 right-2 px-6 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-semibold rounded-xl transition-colors disabled:opacity-50"
-            >
-              {searching ? <Loader2 className="w-5 h-5 animate-spin" /> : "Search"}
-            </button>
+              <button
+                type="submit"
+                disabled={searching}
+                className="absolute inset-y-2 right-2 px-4 sm:px-6 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-semibold rounded-xl transition-colors disabled:opacity-50"
+              >
+                {searching ? <Loader2 className="w-5 h-5 animate-spin" /> : "Search"}
+              </button>
           </form>
 
           {/* Search Results */}
@@ -158,9 +159,9 @@ export default function GuestView({ roomId, guestId, name }: { roomId: string; g
                     </div>
                     <button
                       onClick={() => addToQueue(video)}
-                      disabled={hasActiveSong}
+                      disabled={limitReached}
                       className="p-3 bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={hasActiveSong ? "You already have a song in queue" : "Add to queue"}
+                      title={limitReached ? "Queue limit reached" : "Add to queue"}
                     >
                       <Plus className="w-5 h-5" />
                     </button>
@@ -177,11 +178,22 @@ export default function GuestView({ roomId, guestId, name }: { roomId: string; g
             Up Next <span className="bg-[var(--color-card)] text-sm px-3 py-1 rounded-full border border-[var(--color-border)]">{queue.length}</span>
           </h3>
           <div className="space-y-3">
-            {queue.map((song) => {
-              const hasVoted = song.upvotedBy.includes(guestId);
-              const isMine = song.requestedBy.guestId === guestId;
+            {[...queue]
+              .sort((a, b) => {
+                if (room?.orderedIds && room.orderedIds.length > 0) {
+                  const indexA = room.orderedIds.indexOf(a.id!);
+                  const indexB = room.orderedIds.indexOf(b.id!);
+                  if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                  if (indexA !== -1) return -1;
+                  if (indexB !== -1) return 1;
+                }
+                return 0; // Default to Firestore's sorting
+              })
+              .map((song) => {
+                const hasVoted = song.upvotedBy.includes(guestId);
+                const isMine = song.requestedBy.guestId === guestId;
 
-              return (
+                return (
                 <div key={song.id} className="flex gap-4 p-4 bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] items-center shadow-sm hover:shadow-md transition">
                   <img src={song.thumbnail} alt="thumb" className="w-16 h-12 rounded-lg object-cover" />
                   <div className="flex-1 min-w-0">
